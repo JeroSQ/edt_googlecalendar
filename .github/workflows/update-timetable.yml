@@ -1,0 +1,36 @@
+name: Actualizar horario ENIB
+
+on:
+  schedule:
+    # Todos los días a las 05:00 UTC (~07:00 hora de Francia)
+    - cron: "0 5 * * *"
+  workflow_dispatch: {}  # permite correrlo manualmente desde la pestaña Actions
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: pip install requests
+
+      - name: Descargar y limpiar el horario
+        env:
+          ENIB_USER: ${{ secrets.ENIB_USER }}
+          ENIB_PASS: ${{ secrets.ENIB_PASS }}
+        run: python3 fetch_edt.py timetable_enib.ics
+
+      - name: Commitear si hubo cambios
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add timetable_enib.ics
+          git diff --staged --quiet || git commit -m "Actualizar horario $(date -u +%Y-%m-%d)"
+          git push
