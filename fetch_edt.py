@@ -15,6 +15,7 @@ import os
 import re
 import sys
 from html.parser import HTMLParser
+from urllib.parse import urljoin
 
 import requests
 
@@ -70,11 +71,7 @@ def cas_login(session: requests.Session, username: str, password: str) -> None:
     form_data["password"] = password
     form_data.setdefault("_eventId", "submit")
 
-    action_url = parser.form_action or CAS_LOGIN_URL
-    if action_url.startswith("/"):
-        action_url = "https://cas.enib.fr" + action_url
-    elif action_url.startswith("?"):
-        action_url = CAS_LOGIN_URL + action_url
+    action_url = urljoin(resp.url, parser.form_action or "")
 
     login_resp = session.post(
         action_url,
