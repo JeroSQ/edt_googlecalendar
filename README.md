@@ -17,8 +17,7 @@ URL and refreshes itself periodically — no manual exporting ever again.
 
 ### 1. Fork this repo
 
-Click "Fork" at the top of the page. You can keep it public or private (see
-[Making the file public](#making-the-file-public) below for the tradeoffs).
+Click "Fork" at the top of the page. You must keep it public.
 
 ### 2. Add your credentials as repo secrets
 
