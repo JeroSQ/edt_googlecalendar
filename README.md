@@ -32,8 +32,8 @@ and add:
 | `ENIB_STUDENT_NAME` | A search string matching your name (e.g. your last name) |
 
 `ENIB_STUDENT_NAME` is matched case-insensitively against the student list
-ENIB's own site uses internally (e.g. `"SQUARTINI"` matches `"SQUARTINI
-Jeronimo"`). This is resolved fresh every time the workflow runs, so it
+ENIB's own site uses internally (e.g. `"DOE"` matches `"DOE
+John"`). This is resolved fresh every time the workflow runs, so it
 doesn't break when ENIB's internal IDs change — no DevTools digging
 required, just use a name specific enough to match only you. If it matches
 more than one student, the workflow will fail with a list of the matches so
