@@ -1,64 +1,104 @@
-# Sincronizacion automatica del EDT de ENIB
+# ENIB Timetable → Google Calendar Sync
 
-Este repo descarga tu emploi du temps de https://edt.enib.fr todos los dias
-y lo deja como un .ics valido y limpio, listo para suscribir en Google Calendar.
+Automatically fetches your class timetable from ENIB's EDT system
+(`edt.enib.fr`) every day and publishes it as a clean `.ics` file you can
+subscribe to from Google Calendar (or any calendar app that supports
+"subscribe from URL").
 
-## Setup (una sola vez)
+## How it works
 
-1. Cread un repo nuevo en GitHub (puede ser privado) y subi estos archivos
-   (`fetch_edt.py` y la carpeta `.github/workflows/`).
+A GitHub Actions workflow runs once a day, logs into `edt.enib.fr` on your
+behalf (via CAS), downloads your timetable, cleans it up (the raw export has
+a few quirks that break most calendar apps), and commits the result back to
+this repo as `timetable.ics`. Your calendar app then reads that file's raw
+URL and refreshes itself periodically — no manual exporting ever again.
 
-2. En el repo: Settings -> Secrets and variables -> Actions -> "New repository secret".
-   Cread dos secrets:
-   - `ENIB_USER` -> tu usuario de ENIB/CAS
-   - `ENIB_PASS` -> tu contrasena de ENIB/CAS
+## Setup
 
-   (Nunca van escritos en el codigo, quedan encriptados por GitHub)
+### 1. Fork this repo
 
-3. Anda a la pestaña "Actions" del repo, elegi el workflow
-   "Actualizar horario ENIB" y apreta "Run workflow" para probarlo manualmente
-   una vez. Si todo sale bien, va a aparecer un commit nuevo con
-   `timetable_enib.ics` actualizado.
+Click "Fork" at the top of the page. You can keep it public or private (see
+[Making the file public](#making-the-file-public) below for the tradeoffs).
 
-4. Una vez que el archivo este en el repo, la URL para pegar en Google
-   Calendar (Configuracion -> Agregar calendario -> Desde URL) es:
+### 2. Add your credentials as repo secrets
 
-   https://raw.githubusercontent.com/TU-USUARIO/TU-REPO/main/timetable_enib.ics
+Go to **Settings → Secrets and variables → Actions → New repository secret**
+and add:
 
-   (si el repo es privado, esta URL no va a funcionar publicamente -
-   ver seccion "Repo privado" abajo)
+| Secret | Value |
+|---|---|
+| `ENIB_USER` | Your ENIB/CAS username |
+| `ENIB_PASS` | Your ENIB/CAS password |
+| `ENIB_STUDENT_NAME` | A search string matching your name (e.g. your last name) |
 
-## Repo privado
+`ENIB_STUDENT_NAME` is matched case-insensitively against the student list
+ENIB's own site uses internally (e.g. `"SQUARTINI"` matches `"SQUARTINI
+Jeronimo"`). This is resolved fresh every time the workflow runs, so it
+doesn't break when ENIB's internal IDs change — no DevTools digging
+required, just use a name specific enough to match only you. If it matches
+more than one student, the workflow will fail with a list of the matches so
+you can make it more specific (e.g. full last name instead of just part of
+it).
 
-Si el repo es privado, `raw.githubusercontent.com` va a pedir autenticacion
-y Google Calendar no va a poder leerlo. Opciones:
+Optional secrets (only needed if the defaults don't fit your case):
 
-- Hacer el repo publico (el .ics solo tiene horarios/aulas, sin datos
-  sensibles reales mas alla de nombres de profesores, asi que para la
-  mayoria esto es aceptable).
-- O usar GitHub Pages para publicar solo el .ics de forma publica
-  aunque el codigo del repo quede privado.
+| Secret | Purpose |
+|---|---|
+| `ENIB_FROM_WEEK` | Start week, format `YYWW` (e.g. `2637` = week 37 of 2026). Defaults to the current week. |
+| `ENIB_TO_WEEK` | End week, same format. Defaults to `ENIB_WEEKS_AHEAD` weeks after the start. |
+| `ENIB_WEEKS_AHEAD` | How many weeks ahead to fetch when `ENIB_TO_WEEK` isn't set. Default: `20`. |
 
-## Que hace el script
+### 3. Allow the workflow to push commits
 
-1. Login en https://cas.enib.fr (protocolo CAS: pide el formulario,
-   saca el token `execution`, manda usuario/contrasena).
-2. Con la sesion ya autenticada, pide el .ics a
-   https://edt.enib.fr/timetable_vcal.php con el filtro de tus grupos
-   (guardado en `CRITERIA` dentro del script).
-3. Limpia el archivo:
-   - saca el wrapper HTML que agrega el navegador
-   - decodifica los acentos (venian en windows-1252)
-   - agrega `VERSION:2.0` y `PRODID` (obligatorios, el original no los tenia)
-   - agrega `TZID=Europe/Paris` a cada evento
+Go to **Settings → Actions → General → Workflow permissions** and select
+**"Read and write permissions"**. (The workflow file also requests this
+explicitly, but some accounts require the toggle too.)
 
-## Si en algun momento deja de funcionar
+### 4. Run it once manually
 
-Lo mas probable es que haya cambiado el `CRITERIA` (el filtro de tus
-materias) si te cambian de grupo/año. Para renovarlo:
+Go to the **Actions** tab → "Update ENIB timetable" → **Run workflow**. If it
+succeeds, you'll see a new commit adding `timetable.ics`.
 
-1. Entra a https://edt.enib.fr con DevTools abierto (F12 -> Network).
-2. Exporta tu horario como la primera vez.
-3. Copia el valor exacto del campo `criteria` del Payload de la
-   request a `timetable_vcal.php` (click derecho -> Copy value).
-4. Reemplaza la variable `CRITERIA` en `fetch_edt.py`.
+### 5. Subscribe from Google Calendar
+
+Open the `timetable.ics` file in your repo, click **"Raw"**, and copy that
+URL — it looks like:
+
+```
+https://raw.githubusercontent.com/YOUR-USERNAME/YOUR-REPO/main/timetable.ics
+```
+
+In Google Calendar: **Settings → Add calendar → From URL**, paste it, done.
+Add a Google Calendar widget to your phone's home screen and it'll stay in
+sync automatically (Google re-checks subscribed URLs roughly every 8–24
+hours; there's no way to force a faster refresh on the free tier).
+
+## Making the file public
+
+`raw.githubusercontent.com` only serves files from **public** repos (or
+private ones you're authenticated into) — Google Calendar can't authenticate,
+so it needs the repo to be public. The `.ics` only contains class schedules,
+rooms, and teacher names, so for most people this is an acceptable tradeoff.
+If you'd rather keep the repo private, GitHub Pages can publish just the
+`.ics` file publicly while the rest of the repo stays private — but Pages
+itself requires GitHub Pro on private repos, so on a free account your only
+option is a public repo.
+
+## Troubleshooting
+
+- **Workflow fails with a 401 during login** — wrong `ENIB_USER`/`ENIB_PASS`,
+  or a stray space/newline got pasted into the secret's value.
+- **"No student matched ENIB_STUDENT_NAME"** or **"matched multiple
+  students"** — adjust the value to match your name more precisely (the
+  error message lists the closest matches it found).
+- **"Could not find a 'criteria' field"** — usually means the student/week
+  selection didn't go through as expected; check the previous error first.
+- **SSL certificate errors** — `edt.enib.fr` serves an incomplete certificate
+  chain; the script already works around this for that domain specifically.
+  If you see this error elsewhere, something upstream may have changed.
+- **GitHub Actions billing lock** — some new GitHub accounts need a payment
+  method on file (even for free-tier Actions minutes) before workflows can
+  run. See **Settings → Billing**.
+- If ENIB changes their site's structure (it's happened before while
+  building this), the workflow may start failing. Check the **Actions** tab
+  occasionally.

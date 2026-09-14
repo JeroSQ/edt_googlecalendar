@@ -1,10 +1,12 @@
-name: Actualizar horario ENIB
+name: Update ENIB timetable
 
 on:
   schedule:
-    # Todos los días a las 05:00 UTC (~07:00 hora de Francia)
-    - cron: "0 5 * * *"
-  workflow_dispatch: {}  # permite correrlo manualmente desde la pestaña Actions
+    - cron: "0 5 * * *"  # daily at 05:00 UTC (~07:00 France time)
+  workflow_dispatch: {}   # allows running it manually from the Actions tab
+
+permissions:
+  contents: write  # needed so the workflow can commit the updated .ics back
 
 jobs:
   update:
@@ -13,24 +15,28 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Instalar dependencias
+      - name: Install dependencies
         run: pip install requests
 
-      - name: Descargar y limpiar el horario
+      - name: Fetch and clean the timetable
         env:
           ENIB_USER: ${{ secrets.ENIB_USER }}
           ENIB_PASS: ${{ secrets.ENIB_PASS }}
-        run: python3 fetch_edt.py timetable_enib.ics
+          ENIB_STUDENT_NAME: ${{ secrets.ENIB_STUDENT_NAME }}
+          ENIB_FROM_WEEK: ${{ secrets.ENIB_FROM_WEEK }}
+          ENIB_TO_WEEK: ${{ secrets.ENIB_TO_WEEK }}
+          ENIB_WEEKS_AHEAD: ${{ secrets.ENIB_WEEKS_AHEAD }}
+        run: python3 fetch_edt.py timetable.ics
 
-      - name: Commitear si hubo cambios
+      - name: Commit if changed
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add timetable_enib.ics
-          git diff --staged --quiet || git commit -m "Actualizar horario $(date -u +%Y-%m-%d)"
+          git add timetable.ics
+          git diff --staged --quiet || git commit -m "Update timetable $(date -u +%Y-%m-%d)"
           git push
